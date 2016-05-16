@@ -46,6 +46,7 @@ volatile int checkvar[26]={0};
 int stack_count = 0;
 int leave_count = 0;
 FILE *fp;
+int x86 = 0;
 
 /* END */
 
@@ -81,7 +82,15 @@ int main(){
     push(newNode10);
     opNode *asnNode11 = newOpNode(2, NULLINT, pop(), pop());
     newLNode(asnNode11);
-    traverse(head, 97);
+    fp = fopen("test.asm","w+");
+    fprintf(fp, "Section .text\n"
+                "\tglobal _main\n"
+                "_main:\n"
+                "\tpush rbp\n"
+                "\tmov rbp, rsp\n");
+
+    traverse(head, 'a');
+    fprintf(fp, "ret\n");
 }
 
 // 0=data, 1 = var, 2=assign, 3=plus, 4=minus, 5=multi, 6=div, 7=mod, 8=equal, 9=loop;
@@ -162,7 +171,11 @@ int size(){
 void traverse(opNode *nod,int n)
 {
     if(nod->type==0){           // Number
-        printf("Number\n");
+        printf("Number [%d]\n",nod->data);
+        if(x86)
+            fprintf(fp, "\tmov e%cx, %d\n", n, nod->data );
+        else
+            fprintf(fp, "\tmov r%cx, %d\n", n, nod->data );
     }else if(nod->type==1){     // Variable
         printf( "var\n");
     }else if(nod->type==2){     // =
@@ -171,24 +184,35 @@ void traverse(opNode *nod,int n)
         printf( "asn\n");
     }else if(nod->type==3){     // +
         traverse(nod->left, n);
-        traverse(nod->right, n);
+        traverse(nod->right, n+1);
+        fprintf(fp, "\tadd r%cx, r%cx\n",n ,n+1);
         printf( "add\n");
     }else if(nod->type==4){     // -
         traverse(nod->left, n);
-        traverse(nod->right, n);
+        traverse(nod->right, n+1);
+        fprintf(fp, "\tsub r%cx, r%cx\n",n ,n+1);
         printf( "sub\n");
     }else if(nod->type==5){     // *
-        traverse(nod->left, n);
-        traverse(nod->right, n);
+        x86 = 1;
+        traverse(nod->left, 'a');
+        traverse(nod->right, 'b');
+        fprintf(fp, "\timul e%cx\n", 'b');
         printf( "multi\n");
+        x86 = 0;
     }else if(nod->type==6){     // /
-        traverse(nod->left, n);
-        traverse(nod->right, n);
+        x86 = 1;
+        traverse(nod->left, 'a');
+        traverse(nod->right, 'b');
+        fprintf(fp, "\tidiv e%cx\n", 'b');
         printf( "div\n");
+        x86 = 0;
     }else if(nod->type==7){     // %
-        traverse(nod->left, n);
-        traverse(nod->right, n);
+        x86 = 1;
+        traverse(nod->left, 'a');
+        traverse(nod->right, 'b');
+        fprintf(fp, "\tidiv e%cx\n", 'b');
         printf( "mod\n");
+        x86 = 0;
     }else if(nod->type==8){     // EQUAL
         traverse(nod->left, n);
         traverse(nod->right, n);
